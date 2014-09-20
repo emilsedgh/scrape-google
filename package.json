@@ -1,0 +1,16 @@
+{
+  "name": "scrape-google",
+  "version": "0.0.1",
+  "description": "Scrapes google",
+  "main": "index.js",
+  "scripts": {
+    "test": ""
+  },
+  "repository": "",
+  "author": "",
+  "license": "BSD",
+  "dependencies": {
+    "async": "~0.9.0",
+    "jsdom": "~1.0.0-pre.7"
+  }
+}
