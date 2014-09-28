@@ -2,23 +2,42 @@ var async = require('async');
 var jsdom = require('jsdom');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
+var Limiter = require('function-rate-limit');
+var request = require('request');
+
+var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
+function _fetch(payload, cb) {
+  var r = {
+    url:payload.url,
+    headers:{
+      'User-Agent' : agent
+    }
+  };
+
+  request(r, function(err, response, body) {
+    console.log(payload.url, response.statusCode);
+    if(err) {
+      return cb(err);
+    }
+
+    if(response.statusCode !== 200) {
+      return cb(response.statusCode);
+    }
+
+    jsdom.env(body, cb);
+  });
+}
+var fetch = Limiter(1, 1500, _fetch);
 
 var Scraper = function(options) {
 
   var emitter = new EventEmitter;
-  var results = [];
+  emitter.results = [];
 
-  if(!options.concurrency)
-    options.concurrency = 1;
+  options.start_year = parseInt(options.start_year);
+  options.end_year = parseInt(options.end_year);
 
-  function _fetch(payload, cb) {
-    jsdom.env({
-      url:payload.url,
-      done:cb
-    });
-  }
-  var fetch = async.queue(_fetch, options.concurrency);
-
+  emitter.options = options;
 
   var U = 'https://www.google.com/search?num=100&start=%s&q=%s&source=lnt&tbs=cdr%3A1%2Ccd_min%3A%s%2Ccd_max%3A%s&tbm=';
 
@@ -26,6 +45,8 @@ var Scraper = function(options) {
     emitter.emit('fetching page', page);
 
     var u = util.format(U, page*100, encodeURIComponent(keyword), encodeURIComponent(start_date), encodeURIComponent(end_date));
+
+//     console.log(u);
 
     var payload = {
       url:u,
@@ -36,36 +57,40 @@ var Scraper = function(options) {
       cb:cb
     }
 
-    fetch.push(payload, scrape.bind(null, payload));
+    fetch(payload, scrape.bind(null, payload));
   }
 
   function scrape(payload, err, window) {
-    emitter.emit('fetched page', payload.page);
+    emitter.emit('fetched page', payload.page, payload);
     if(err) {
-      emitter.emit('error', err);
+      emitter.emit('error', err, payload);
       return ;
     }
 
     if(payload.page === 0) {
       var last = window.document.querySelector('#nav td:last-child');
       if(last && last.previousSibling)
-        emitter.emit('estimate pages', parseInt(last.previousSibling.textContent));
+        emitter.emit('estimate pages', parseInt(last.previousSibling.textContent), payload);
     }
 
     var $results = window.document.querySelectorAll('#res li h3 a');
+    console.log('>', $results.length, payload.url);
+
     for(var i=0; i<$results.length; i++) {
       var $a = $results.item(i);
 
       var title = $a.textContent;
       var url = $a.getAttribute('href');
+
       var result = {
         title:title,
-        url:url,
-        page:payload.page
+        url:url
       };
-      results.push(result);
-      emitter.emit('result', result);
+      emitter.results.push(result);
+      emitter.emit('result', result, payload);
     }
+
+    window.close();
 
     if($results.length >= 100)
       getResults(payload.keyword, payload.start_date, payload.end_date, payload.page+1, payload.cb)
@@ -76,14 +101,14 @@ var Scraper = function(options) {
   function start() {
     var fns = [];
 
-    for(var i = options.start_year; i<options.end_year; i++)
-      fns.push(getResults.bind(null, options.keyword, '1/1/'+i, '1/1/'+(i+1), 0));
+    for(var i = options.start_year; i<=options.end_year; i++)
+      fns.push(getResults.bind(null, options.keyword, '1/1/'+i, '1/1/'+((i+1)), 0));
 
     async.parallel(fns, finish);
   }
 
   function finish() {
-    if(options.callback) options.callback(null, results);
+    if(options.callback) options.callback(null, emitter.results);
     emitter.emit('end');
   }
 
