@@ -84,6 +84,7 @@ var Scraper = function(options) {
       var result = {
         title:title,
         url:url,
+        keyword:payload.keyword,
         start_date:payload.start_date,
         end_date:payload.end_date
       };
