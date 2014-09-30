@@ -84,8 +84,8 @@ var Scraper = function(options) {
       var result = {
         title:title,
         url:url,
-        start_date:start_date,
-        end_date:end_date
+        start_date:payload.start_date,
+        end_date:payload.end_date
       };
       emitter.results.push(result);
       emitter.emit('result', result, payload);
