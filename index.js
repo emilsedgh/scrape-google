@@ -28,7 +28,7 @@ function _fetch(payload, cb) {
     jsdom.env(body, cb);
   });
 }
-var fetch = Limiter(1, 1500, _fetch);
+var fetch = Limiter(1, 3000, _fetch);
 
 var Scraper = function(options) {
   var emitter = new EventEmitter;
