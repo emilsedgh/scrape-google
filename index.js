@@ -4,6 +4,7 @@ var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var Limiter = require('function-rate-limit');
 var request = require('request');
+var moment = require('moment');
 
 var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
 function _fetch(payload, cb) {
@@ -30,12 +31,11 @@ function _fetch(payload, cb) {
 var fetch = Limiter(1, 1500, _fetch);
 
 var Scraper = function(options) {
-
   var emitter = new EventEmitter;
   emitter.results = [];
 
-  options.start_year = parseInt(options.start_year);
-  options.end_year = parseInt(options.end_year);
+  options.start_year = options.start_year;
+  options.end_year   = options.end_year;
 
   emitter.options = options;
 
@@ -45,8 +45,6 @@ var Scraper = function(options) {
     emitter.emit('fetching page', page);
 
     var u = util.format(U, page*100, encodeURIComponent(keyword), encodeURIComponent(start_date), encodeURIComponent(end_date));
-
-//     console.log(u);
 
     var payload = {
       url:u,
@@ -63,7 +61,8 @@ var Scraper = function(options) {
   function scrape(payload, err, window) {
     emitter.emit('fetched page', payload.page, payload);
     if(err) {
-      emitter.emit('error', err, payload);
+      if(err == 503)
+        emitter.emit('error', err, payload);
       return ;
     }
 
@@ -84,7 +83,9 @@ var Scraper = function(options) {
 
       var result = {
         title:title,
-        url:url
+        url:url,
+        start_date:start_date,
+        end_date:end_date
       };
       emitter.results.push(result);
       emitter.emit('result', result, payload);
@@ -101,8 +102,15 @@ var Scraper = function(options) {
   function start() {
     var fns = [];
 
-    for(var i = options.start_year; i<=options.end_year; i++)
-      fns.push(getResults.bind(null, options.keyword, '1/1/'+i, '1/1/'+((i+1)), 0));
+    var end  = moment(options.end_year).endOf('year')
+    var step = moment(options.start_year);
+    var next = moment(step).add(1, options.range);
+
+    while(step.valueOf() <= end.valueOf()) {
+      fns.push(getResults.bind(null, options.keyword, step.format('l'), next.format('l'), 0));
+      step = next.add(1, 'day');
+      next = moment(step).add(1, options.range).subtract(1, 'day');
+    }
 
     async.parallel(fns, finish);
   }

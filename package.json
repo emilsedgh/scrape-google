@@ -11,6 +11,14 @@
   "license": "BSD",
   "dependencies": {
     "async": "~0.9.0",
-    "jsdom": "~1.0.0-pre.7"
-  }
+    "jsdom": "~1.0.0-pre.7",
+    "querystring": "~0.2.0"
+  },
+  "readme": "ERROR: No README data found!",
+  "_id": "scrape-google@0.0.1",
+  "dist": {
+    "shasum": "15993e514ab3feb2849156da5d28734da510b80e"
+  },
+  "_from": "scrape-google@",
+  "_resolved": "https://registry.npmjs.org/scrape-google/-/scrape-google-0.0.1.tgz"
 }
