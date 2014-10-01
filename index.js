@@ -6,8 +6,9 @@ var request = require('request');
 var moment = require('moment');
 
 var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
-var INTERVAL = 4000;
+var INTERVAL = 1500;
 
+var fetchCount = 0;
 function _fetch(payload, cb) {
   var r = {
     url:payload.url,
@@ -29,6 +30,12 @@ function _fetch(payload, cb) {
   }
 
   setTimeout(function() {
+    fetchCount++;
+    console.log(fetchCount);
+    if(fetchCount === 100) {
+      payload.scraper.backoff(300);
+      fetchCount = 0;
+    }
     request(r, fetched);
   }, INTERVAL);
 }
@@ -56,27 +63,31 @@ var Scraper = function(options) {
       start_date:start_date,
       end_date:end_date,
       page:page,
-      cb:cb
+      cb:cb,
+      scraper:emitter
     }
 
     fetch.push(payload, scrape.bind(null, payload));
   }
 
-  var backoffInterval = 900;
-  function backoff() {
+  var backoffInterval = 450;
+  emitter.backoff = function(time) {
     console.log('Backing Off', backoffInterval);
     emitter.emit('pause', backoffInterval);
     fetch.pause();
+
+    if(!time)
+      var time = backoffInterval;
 
     setTimeout(function() {
       console.log('Resuming');
       emitter.emit('resume');
       emitter.once('fetched page', function() {
         console.log('Resetting backoff interval');
-        backoffInterval = 120;
+        backoffInterval = 450;
       });
       fetch.resume();
-    }, backoffInterval*1000);
+    }, time*1000);
 
     backoffInterval = backoffInterval * 2;
   }
@@ -85,7 +96,7 @@ var Scraper = function(options) {
     if(err) {
       if(err == 503) {
 //         emitter.emit('error', err, payload);
-        backoff();
+        emitter.backoff();
       }
       fetch.unshift(payload);
       return ;
