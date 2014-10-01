@@ -6,7 +6,7 @@ var request = require('request');
 var moment = require('moment');
 
 var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
-var INTERVAL = 3000;
+var INTERVAL = 4000;
 
 function _fetch(payload, cb) {
   var r = {
@@ -62,7 +62,7 @@ var Scraper = function(options) {
     fetch.push(payload, scrape.bind(null, payload));
   }
 
-  var backoffInterval = 300;
+  var backoffInterval = 900;
   function backoff() {
     console.log('Backing Off', backoffInterval);
     emitter.emit('pause', backoffInterval);
@@ -139,6 +139,7 @@ var Scraper = function(options) {
       next = moment(step).add(1, options.range).subtract(1, 'day');
     }
 
+    emitter.emit('jobs', fns.length);
     async.parallel(fns, finish);
   }
 
