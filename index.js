@@ -62,7 +62,7 @@ var Scraper = function(options) {
     fetch.push(payload, scrape.bind(null, payload));
   }
 
-  var backoffInterval = 10;
+  var backoffInterval = 300;
   function backoff() {
     console.log('Backing Off', backoffInterval);
     emitter.emit('pause', backoffInterval);
