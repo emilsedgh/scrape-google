@@ -2,11 +2,12 @@ var async = require('async');
 var jsdom = require('jsdom');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
-var Limiter = require('function-rate-limit');
 var request = require('request');
 var moment = require('moment');
 
 var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
+var INTERVAL = 3000;
+
 function _fetch(payload, cb) {
   var r = {
     url:payload.url,
@@ -15,8 +16,7 @@ function _fetch(payload, cb) {
     }
   };
 
-  request(r, function(err, response, body) {
-    console.log(payload.url, response.statusCode);
+  var fetched = function(err, response, body) {
     if(err) {
       return cb(err);
     }
@@ -26,9 +26,13 @@ function _fetch(payload, cb) {
     }
 
     jsdom.env(body, cb);
-  });
+  }
+
+  setTimeout(function() {
+    request(r, fetched);
+  }, INTERVAL);
 }
-var fetch = Limiter(1, 4500, _fetch);
+var fetch = async.queue(_fetch, 1);
 
 var Scraper = function(options) {
   var emitter = new EventEmitter;
@@ -55,16 +59,39 @@ var Scraper = function(options) {
       cb:cb
     }
 
-    fetch(payload, scrape.bind(null, payload));
+    fetch.push(payload, scrape.bind(null, payload));
+  }
+
+  var backoffInterval = 10;
+  function backoff() {
+    console.log('Backing Off', backoffInterval);
+    emitter.emit('pause', backoffInterval);
+    fetch.pause();
+
+    setTimeout(function() {
+      console.log('Resuming');
+      emitter.emit('resume');
+      emitter.once('fetched page', function() {
+        console.log('Resetting backoff interval');
+        backoffInterval = 120;
+      });
+      fetch.resume();
+    }, backoffInterval*1000);
+
+    backoffInterval = backoffInterval * 2;
   }
 
   function scrape(payload, err, window) {
-    emitter.emit('fetched page', payload.page, payload);
     if(err) {
-      if(err == 503)
-        emitter.emit('error', err, payload);
+      if(err == 503) {
+//         emitter.emit('error', err, payload);
+        backoff();
+      }
+      fetch.unshift(payload);
       return ;
     }
+
+    emitter.emit('fetched page', payload.page, payload);
 
     if(payload.page === 0) {
       var last = window.document.querySelector('#nav td:last-child');
@@ -73,7 +100,6 @@ var Scraper = function(options) {
     }
 
     var $results = window.document.querySelectorAll('#res li h3 a');
-    console.log('>', $results.length, payload.url);
 
     for(var i=0; i<$results.length; i++) {
       var $a = $results.item(i);
@@ -103,8 +129,8 @@ var Scraper = function(options) {
   function start() {
     var fns = [];
 
-    var end  = moment(options.end_year).endOf('year')
-    var step = moment(options.start_year);
+    var end  = moment([options.end_year]).endOf('year')
+    var step = moment([options.start_year]);
     var next = moment(step).add(1, options.range);
 
     while(step.valueOf() <= end.valueOf()) {
