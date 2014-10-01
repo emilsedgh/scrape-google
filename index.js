@@ -31,9 +31,9 @@ function _fetch(payload, cb) {
 
   setTimeout(function() {
     fetchCount++;
-    console.log(fetchCount);
+
     if(fetchCount === 100) {
-      payload.scraper.backoff(300);
+      payload.scraper.backoff(15*60);
       fetchCount = 0;
     }
     request(r, fetched);
@@ -70,21 +70,19 @@ var Scraper = function(options) {
     fetch.push(payload, scrape.bind(null, payload));
   }
 
-  var backoffInterval = 450;
+  var backoffInterval = 2700;
   emitter.backoff = function(time) {
-    console.log('Backing Off', backoffInterval);
-    emitter.emit('pause', backoffInterval);
     fetch.pause();
 
     if(!time)
       var time = backoffInterval;
 
+    emitter.emit('pause', time);
+
     setTimeout(function() {
-      console.log('Resuming');
       emitter.emit('resume');
       emitter.once('fetched page', function() {
-        console.log('Resetting backoff interval');
-        backoffInterval = 450;
+        backoffInterval = 2700;
       });
       fetch.resume();
     }, time*1000);
