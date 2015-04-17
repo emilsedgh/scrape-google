@@ -6,7 +6,7 @@ var request = require('request');
 var moment = require('moment');
 
 var agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36';
-var INTERVAL = 1500;
+var INTERVAL = 1000;
 
 var fetchCount = 0;
 function _fetch(payload, cb) {
@@ -127,9 +127,21 @@ var Scraper = function(options) {
       emitter.emit('result', result, payload);
     }
 
-    window.close();
 
-    if($results.length >= 100)
+    var hasNext = false;
+    var $next   = false;
+
+    var $cur    = window.document.querySelector('td.cur');
+
+    if($cur)
+      var $next   = $cur.nextSibling;
+
+    if($next)
+      var hasNext = $next.querySelectorAll('a.fl').length > 0;
+
+    window.close();
+  
+    if(hasNext)
       getResults(payload.keyword, payload.start_date, payload.end_date, payload.page+1, payload.cb)
     else
       payload.cb();
