@@ -92,7 +92,7 @@ var Scraper = function(options) {
 
   function scrape(payload, err, window) {
     if(err) {
-      if(err == 503) {
+      if(err == 503 || err == 403) {
 //         emitter.emit('error', err, payload);
         emitter.backoff();
       }
@@ -140,7 +140,7 @@ var Scraper = function(options) {
       var hasNext = $next.querySelectorAll('a.fl').length > 0;
 
     window.close();
-  
+
     if(hasNext)
       getResults(payload.keyword, payload.start_date, payload.end_date, payload.page+1, payload.cb)
     else
